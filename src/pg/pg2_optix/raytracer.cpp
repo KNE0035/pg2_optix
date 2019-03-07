@@ -69,6 +69,7 @@ int Raytracer::initGraph() {
 	error_handler(rtBufferCreate(context, RT_BUFFER_INPUT, &vertex_buffer));
 	error_handler(rtBufferSetFormat(vertex_buffer, RT_FORMAT_FLOAT3));
 	error_handler(rtBufferSetSize1D(vertex_buffer, 3));
+
 	{
 		optix::float3 * data = nullptr;
 		error_handler(rtBufferMap(vertex_buffer, (void**)(&data)));
@@ -78,6 +79,7 @@ int Raytracer::initGraph() {
 		error_handler(rtBufferUnmap(vertex_buffer));
 		data = nullptr;
 	}
+
 	error_handler(rtGeometryTrianglesSetVertices(geometry_triangles, 3, vertex_buffer, 0, sizeof(optix::float3), RT_FORMAT_FLOAT3));
 	//rtGeometryTrianglesSetTriangles();
 	error_handler(rtGeometryTrianglesValidate(geometry_triangles));
@@ -139,8 +141,45 @@ int Raytracer::get_image(BYTE * buffer) {
 void Raytracer::LoadScene( const std::string file_name )
 {
 	const int no_surfaces = LoadOBJ( file_name.c_str(), surfaces_, materials_ );
-
+	
 	int no_triangles = 0;
+
+	for (auto surface : surfaces_)
+	{
+		no_triangles += surface->no_triangles;
+	}
+
+	RTgeometrytriangles geometry_triangles;
+	error_handler(rtGeometryTrianglesCreate(context, &geometry_triangles));
+	error_handler(rtGeometryTrianglesSetPrimitiveCount(geometry_triangles, no_triangles));
+	RTbuffer vertex_buffer;
+
+	error_handler(rtBufferCreate(context, RT_BUFFER_INPUT, &vertex_buffer));
+	error_handler(rtBufferSetFormat(vertex_buffer, RT_FORMAT_FLOAT3));
+	error_handler(rtBufferSetSize1D(vertex_buffer, 3));
+	
+	RTvariable normals;
+	rtContextDeclareVariable(context, "normal_buffer", &normals);
+	
+	RTbuffer normal_buffer;
+	error_handler(rtBufferCreate(context, RT_BUFFER_INPUT, &normal_buffer));
+	rtBufferSetFormat(normal_buffer, RT_FORMAT_FLOAT3);
+	rtBufferSetSize1D(normal_buffer, 3);
+
+	RTvariable materialIndices;
+	rtContextDeclareVariable(context, "material_buffer", &materialIndices);
+	
+	RTbuffer material_buffer;
+	rtBufferSetFormat(normal_buffer, RT_FORMAT_BYTE);
+	rtBufferSetSize1D(normal_buffer, 1);
+
+	optix::float3 * vertexData = nullptr;
+	optix::float3 * normalData = nullptr;
+	optix::uchar1 * materialData = nullptr;
+
+	error_handler(rtBufferMap(vertex_buffer, (void**)(&vertexData)));
+	error_handler(rtBufferMap(normal_buffer, (void**)(&normalData)));
+
 
 
 	// surfaces loop
@@ -151,10 +190,24 @@ void Raytracer::LoadScene( const std::string file_name )
 		{
 			Triangle & triangle = surface->get_triangle( i );
 
+			materialData[i] = surface->get_material().
+
 			// vertices loop
 			for ( int j = 0; j < 3; ++j, ++k )
 			{
-				const Vertex & vertex = triangle.vertex( j );		
+				const Vertex & vertex = triangle.vertex(j);
+
+				vertexData[i + j * 3].x = vertex.position.x; 
+				vertexData[i + j * 3].y = vertex.position.y;
+				vertexData[i + j * 3].z = vertex.position.z;
+
+				normalData[i + j * 3].x = vertex.normal.x;
+				normalData[i + j * 3].y = vertex.normal.y;
+				normalData[i + j * 3].z = vertex.normal.z;
+
+
+
+
 			} // end of vertices loop
 
 		} // end of triangles loop
