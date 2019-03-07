@@ -30,7 +30,7 @@ private:
 	std::vector<Surface *> surfaces_;
 	std::vector<Material *> materials_;			
 	
-	RTcontext context = { 0 };
+	RTcontext context = {0};
 	RTbuffer outputBuffer = { 0 };
 
 
