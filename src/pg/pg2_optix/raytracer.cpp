@@ -146,7 +146,7 @@ void Raytracer::LoadScene( const std::string file_name )
 
 	for (auto surface : surfaces_)
 	{
-		no_triangles += surface->no_triangles;
+		no_triangles += surface->no_triangles();
 	}
 
 	RTgeometrytriangles geometry_triangles;
@@ -190,7 +190,7 @@ void Raytracer::LoadScene( const std::string file_name )
 		{
 			Triangle & triangle = surface->get_triangle( i );
 
-			materialData[i] = surface->get_material().
+			materialData[i].x = surface->get_material()->shader();
 
 			// vertices loop
 			for ( int j = 0; j < 3; ++j, ++k )
