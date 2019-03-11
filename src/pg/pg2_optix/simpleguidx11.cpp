@@ -7,7 +7,7 @@ SimpleGuiDX11::SimpleGuiDX11( const int width, const int height)
 {
 	width_ = width;
 	height_ = height;
-
+	mousePoss = ImVec2(0, 0);
 	Init();
 }
 
@@ -49,7 +49,6 @@ int SimpleGuiDX11::Init()
 
 	tex_data_ = new BYTE[width_ * height_ * 4 * sizeof( BYTE )];
 	CreateTexture();
-
 	return 0;
 }
 
@@ -112,7 +111,7 @@ void SimpleGuiDX11::Producer()
 	{
 		auto t1 = std::chrono::high_resolution_clock::now();
 		std::chrono::duration<float> dt = t1 - t0;
-		printf( "# %d in %0.1f ms\n", frame, dt.count() * 1e+3 );
+		//printf( "# %d in %0.1f ms\n", frame, dt.count() * 1e+3 );
 		t += dt.count();
 		t0 = t1;
 
@@ -135,10 +134,6 @@ void SimpleGuiDX11::Producer()
 	if ( dib )
 	{
 		FreeImage_FlipVertical( dib );
-		char file_name[80];
-		size_t hash = QuickHash( local_data, no_subpixels );
-		sprintf( file_name, "render_%zu.png", hash );
-		FreeImage_Save( FIF_PNG, dib, file_name );
 		FreeImage_Unload( dib );
 		dib = nullptr;
 		local_data = nullptr;
@@ -167,6 +162,7 @@ int SimpleGuiDX11::MainLoop()
 	// and enter message loop
 	MSG msg;
 	ZeroMemory( &msg, sizeof( msg ) );
+
 	while ( msg.message != WM_QUIT )
 	{
 		// Poll and handle messages (inputs, window resize, etc.)
@@ -205,7 +201,7 @@ int SimpleGuiDX11::MainLoop()
 			repaint_request_.store( false, std::memory_order_release );
 		}
 
-		ImGui::Begin( "Image", 0, ImGuiWindowFlags_AlwaysVerticalScrollbar | ImGuiWindowFlags_AlwaysHorizontalScrollbar );
+		ImGui::Begin( "Image", 0, ImGuiWindowFlags_NoMove);
 		ImGui::Image( ImTextureID( tex_view_ ), ImVec2( float( width_ ), float( height_ ) ) );
 		ImGui::End();
 

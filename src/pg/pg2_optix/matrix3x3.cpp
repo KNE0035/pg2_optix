@@ -96,3 +96,7 @@ Matrix3x3 operator*( const Matrix3x3 & a, const Matrix3x3 & b )
 		a.m20_ * b.m01_ + a.m21_ * b.m11_ + a.m22_ * b.m21_,
 		a.m20_ * b.m02_ + a.m21_ * b.m12_ + a.m22_ * b.m22_ );
 }
+
+float* Matrix3x3::data() {
+	return data_;
+}

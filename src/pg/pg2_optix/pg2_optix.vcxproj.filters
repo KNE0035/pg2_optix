@@ -111,6 +111,9 @@
     <ClInclude Include="raytracer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="camera.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -174,6 +177,9 @@
       <Filter>Source Files\imgui</Filter>
     </ClCompile>
     <ClCompile Include="raytracer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="camera.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

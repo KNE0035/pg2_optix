@@ -1,6 +1,7 @@
 #pragma once
 #include "simpleguidx11.h"
 #include "surface.h"
+#include "camera.h"
 
 /*! \class Raytracer
 \brief General ray tracer class.
@@ -12,7 +13,7 @@
 class Raytracer : public SimpleGuiDX11
 {
 public:
-	Raytracer( const int width, const int height );
+	Raytracer( const int width, const int height, const float fov_y, const Vector3 view_from, const Vector3 view_at);
 	~Raytracer();
 
 	int InitDeviceAndScene();
@@ -21,9 +22,6 @@ public:
 	int ReleaseDeviceAndScene();
 
 	void LoadScene( const std::string file_name );
-
-	//Color3f get_pixel( const int x, const int y, const float t = 0.0f ) override;		
-
 	int Ui();
 
 private:	
@@ -32,7 +30,12 @@ private:
 	
 	RTcontext context = {0};
 	RTbuffer outputBuffer = { 0 };
+	RTvariable focal_length;
+	RTvariable view_from;
+	RTvariable M_c_w;
 
+	Camera camera;
+	float fov;
 
 	bool unify_normals_{ true };
 };

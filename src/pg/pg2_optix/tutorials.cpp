@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "raytracer.h"
+#include "mymath.h"
 
 /* OptiX error reporting function */
 void error_handler( RTresult code )
@@ -178,7 +179,7 @@ int tutorial_1()
 /* a simple example showing how to display a bitmap with traced image at intaractive frame rates */
 int tutorial_2( const std::string file_name )
 {
-	Raytracer raytracer( 640, 480 );
+	Raytracer raytracer(640, 480, deg2rad(45.0), Vector3(175, -140, 130), Vector3(0, 0, 35));
 	raytracer.InitDeviceAndScene();
 	raytracer.LoadScene( file_name );
 	raytracer.initGraph();

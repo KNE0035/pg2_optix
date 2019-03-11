@@ -5,9 +5,11 @@
 #include "mymath.h"
 #include "omp.h"
 
-Raytracer::Raytracer( const int width, const int height ) : SimpleGuiDX11( width, height )
+Raytracer::Raytracer( const int width, const int height, const float fov_y, const Vector3 view_from, const Vector3 view_at) : SimpleGuiDX11( width, height )
 {
 	InitDeviceAndScene();
+	camera = Camera(width, height, fov_y, view_from, view_at);
+	fov = fov_y;
 }
 
 Raytracer::~Raytracer()
@@ -24,27 +26,26 @@ int Raytracer::InitDeviceAndScene()
 
 	RTvariable output;
 	error_handler(rtContextDeclareVariable(context, "output_buffer", &output));
-	// OptiX buffers are used to pass data between the host and the device
 	error_handler(rtBufferCreate(context, RT_BUFFER_OUTPUT, &outputBuffer));
-	// before using a buffer, its size, dimensionality and element format must be specified
 	error_handler(rtBufferSetFormat(outputBuffer, RT_FORMAT_UNSIGNED_BYTE4));
 	error_handler(rtBufferSetSize2D(outputBuffer, width(), height()));
-	// sets a program variable to an OptiX object value
 	error_handler(rtVariableSetObject(output, outputBuffer));
-	return S_OK;
-}
 
-int Raytracer::ReleaseDeviceAndScene()
-{
-	error_handler(rtContextDestroy(context));
-	return S_OK;
-}
-
-int Raytracer::initGraph() {
 	RTprogram primary_ray;
 	error_handler(rtProgramCreateFromPTXFile(context, "optixtutorial.ptx", "primary_ray", &primary_ray));
 	error_handler(rtContextSetRayGenerationProgram(context, 0, primary_ray));
 	error_handler(rtProgramValidate(primary_ray));
+
+	rtProgramDeclareVariable(primary_ray, "focal_length",
+		&focal_length);
+	rtProgramDeclareVariable(primary_ray, "view_from",
+		&view_from);
+	rtProgramDeclareVariable(primary_ray, "M_c_w",
+		&M_c_w);
+
+	rtVariableSet3f(view_from, camera.view_from().x, camera.view_from().y, camera.view_from().z);
+	rtVariableSet1f(focal_length, camera.focalLength());
+	rtVariableSetMatrix3x3fv(M_c_w, 0, camera.M_c_w().data());
 
 	RTprogram exception;
 	error_handler(rtProgramCreateFromPTXFile(context, "optixtutorial.ptx", "exception", &exception));
@@ -60,76 +61,27 @@ int Raytracer::initGraph() {
 	error_handler(rtContextSetMissProgram(context, 0, miss_program));
 	error_handler(rtProgramValidate(miss_program));
 
-	// RTgeometrytriangles type provides OptiX with built-in support for triangles	
-	// geometry
-	RTgeometrytriangles geometry_triangles;
-	error_handler(rtGeometryTrianglesCreate(context, &geometry_triangles));
-	error_handler(rtGeometryTrianglesSetPrimitiveCount(geometry_triangles, 1));
-	RTbuffer vertex_buffer;
-	error_handler(rtBufferCreate(context, RT_BUFFER_INPUT, &vertex_buffer));
-	error_handler(rtBufferSetFormat(vertex_buffer, RT_FORMAT_FLOAT3));
-	error_handler(rtBufferSetSize1D(vertex_buffer, 3));
+	return S_OK;
+}
 
-	{
-		optix::float3 * data = nullptr;
-		error_handler(rtBufferMap(vertex_buffer, (void**)(&data)));
-		data[0].x = 0.0f; data[0].y = 0.0f; data[0].z = 0.0f;
-		data[1].x = 200.0f; data[1].y = 0.0f; data[1].z = 0.0f;
-		data[2].x = 0.0f; data[2].y = 150.0f; data[2].z = 0.0f;
-		error_handler(rtBufferUnmap(vertex_buffer));
-		data = nullptr;
-	}
+int Raytracer::ReleaseDeviceAndScene()
+{
+	error_handler(rtContextDestroy(context));
+	return S_OK;
+}
 
-	error_handler(rtGeometryTrianglesSetVertices(geometry_triangles, 3, vertex_buffer, 0, sizeof(optix::float3), RT_FORMAT_FLOAT3));
-	//rtGeometryTrianglesSetTriangles();
-	error_handler(rtGeometryTrianglesValidate(geometry_triangles));
-
-	// material
-	RTmaterial material;
-	error_handler(rtMaterialCreate(context, &material));
-	RTprogram closest_hit;
-	error_handler(rtProgramCreateFromPTXFile(context, "optixtutorial.ptx", "closest_hit", &closest_hit));
-	error_handler(rtProgramValidate(closest_hit));
-	error_handler(rtMaterialSetClosestHitProgram(material, 0, closest_hit));
-	//rtMaterialSetAnyHitProgram( material, 0, any_hit );	
-	error_handler(rtMaterialValidate(material));
-
-	// geometry instance
-	RTgeometryinstance geometry_instance;
-	error_handler(rtGeometryInstanceCreate(context, &geometry_instance));
-	error_handler(rtGeometryInstanceSetGeometryTriangles(geometry_instance, geometry_triangles));
-	error_handler(rtGeometryInstanceSetMaterialCount(geometry_instance, 1));
-	error_handler(rtGeometryInstanceSetMaterial(geometry_instance, 0, material));
-	error_handler(rtGeometryInstanceValidate(geometry_instance));
-	// ---
-
-	// acceleration structure
-	RTacceleration sbvh;
-	error_handler(rtAccelerationCreate(context, &sbvh));
-	error_handler(rtAccelerationSetBuilder(sbvh, "Sbvh"));
-	//error_handler( rtAccelerationSetProperty( sbvh, "vertex_buffer_name", "vertex_buffer" ) );
-	error_handler(rtAccelerationValidate(sbvh));
-
-	// geometry group
-	RTgeometrygroup geometry_group;
-	error_handler(rtGeometryGroupCreate(context, &geometry_group));
-	error_handler(rtGeometryGroupSetAcceleration(geometry_group, sbvh));
-	error_handler(rtGeometryGroupSetChildCount(geometry_group, 1));
-	error_handler(rtGeometryGroupSetChild(geometry_group, 0, geometry_instance));
-	error_handler(rtGeometryGroupValidate(geometry_group));
-
-	RTvariable top_object;
-	error_handler(rtContextDeclareVariable(context, "top_object", &top_object));
-	error_handler(rtVariableSetObject(top_object, geometry_group));
-
-	// group
-
+int Raytracer::initGraph() {
 	error_handler(rtContextValidate(context));
 
 	return S_OK;
 }
 
 int Raytracer::get_image(BYTE * buffer) {
+	camera.updateFov(fov);
+	rtVariableSet3f(view_from, camera.view_from().x, camera.view_from().y, camera.view_from().z);
+	rtVariableSet1f(focal_length, camera.focalLength());
+	rtVariableSetMatrix3x3fv(M_c_w, 0, camera.M_c_w().data());
+
 	error_handler(rtContextLaunch2D(context, 0, width(), height()));
 	optix::uchar4 * data = nullptr;
 	error_handler(rtBufferMap(outputBuffer, (void**)(&data)));
@@ -152,67 +104,119 @@ void Raytracer::LoadScene( const std::string file_name )
 	RTgeometrytriangles geometry_triangles;
 	error_handler(rtGeometryTrianglesCreate(context, &geometry_triangles));
 	error_handler(rtGeometryTrianglesSetPrimitiveCount(geometry_triangles, no_triangles));
-	RTbuffer vertex_buffer;
 
+	RTbuffer vertex_buffer;
 	error_handler(rtBufferCreate(context, RT_BUFFER_INPUT, &vertex_buffer));
 	error_handler(rtBufferSetFormat(vertex_buffer, RT_FORMAT_FLOAT3));
-	error_handler(rtBufferSetSize1D(vertex_buffer, 3));
+	error_handler(rtBufferSetSize1D(vertex_buffer, no_triangles * 3));
 	
 	RTvariable normals;
 	rtContextDeclareVariable(context, "normal_buffer", &normals);
-	
 	RTbuffer normal_buffer;
 	error_handler(rtBufferCreate(context, RT_BUFFER_INPUT, &normal_buffer));
-	rtBufferSetFormat(normal_buffer, RT_FORMAT_FLOAT3);
-	rtBufferSetSize1D(normal_buffer, 3);
+	error_handler(rtBufferSetFormat(normal_buffer, RT_FORMAT_FLOAT3));
+	error_handler(rtBufferSetSize1D(normal_buffer, no_triangles * 3));
 
 	RTvariable materialIndices;
 	rtContextDeclareVariable(context, "material_buffer", &materialIndices);
-	
 	RTbuffer material_buffer;
-	rtBufferSetFormat(normal_buffer, RT_FORMAT_BYTE);
-	rtBufferSetSize1D(normal_buffer, 1);
+	error_handler(rtBufferCreate(context, RT_BUFFER_INPUT, &material_buffer));
+	error_handler(rtBufferSetFormat(material_buffer, RT_FORMAT_UNSIGNED_BYTE));
+	error_handler(rtBufferSetSize1D(material_buffer, no_triangles));
 
-	optix::float3 * vertexData = nullptr;
-	optix::float3 * normalData = nullptr;
-	optix::uchar1 * materialData = nullptr;
+	optix::float3* vertexData = nullptr;
+	optix::float3* normalData = nullptr;
+	optix::uchar1* materialData = nullptr;
 
 	error_handler(rtBufferMap(vertex_buffer, (void**)(&vertexData)));
 	error_handler(rtBufferMap(normal_buffer, (void**)(&normalData)));
-
-
+	error_handler(rtBufferMap(material_buffer, (void**)(&materialData)));
 
 	// surfaces loop
+	int k = 0, l = 0;
 	for ( auto surface : surfaces_ )
 	{		
+
 		// triangles loop
-		for ( int i = 0, k = 0; i < surface->no_triangles(); ++i )
+		for (int i = 0; i < surface->no_triangles(); ++i, ++l )
 		{
 			Triangle & triangle = surface->get_triangle( i );
 
-			materialData[i].x = surface->get_material()->shader();
+			materialData[l].x = (unsigned char)surface->get_material()->shader();
 
 			// vertices loop
 			for ( int j = 0; j < 3; ++j, ++k )
 			{
 				const Vertex & vertex = triangle.vertex(j);
-
-				vertexData[i + j * 3].x = vertex.position.x; 
-				vertexData[i + j * 3].y = vertex.position.y;
-				vertexData[i + j * 3].z = vertex.position.z;
-
-				normalData[i + j * 3].x = vertex.normal.x;
-				normalData[i + j * 3].y = vertex.normal.y;
-				normalData[i + j * 3].z = vertex.normal.z;
-
-
-
-
+				vertexData[k].x = vertex.position.x; 
+				vertexData[k].y = vertex.position.y;
+				vertexData[k].z = vertex.position.z;
+				//printf("%d \n", k);
+				normalData[k].x = vertex.normal.x;
+				normalData[k].y = vertex.normal.y;
+				normalData[k].z = vertex.normal.z;
 			} // end of vertices loop
 
 		} // end of triangles loop
 
 	} // end of surfaces loop
+
+	rtBufferUnmap(normal_buffer);
+	rtBufferUnmap(material_buffer);
+	rtBufferUnmap(vertex_buffer);
+
+	rtBufferValidate(normal_buffer);
+	rtVariableSetObject(normals, normal_buffer);
+
+	rtBufferValidate(material_buffer);
+	rtVariableSetObject(materialIndices, material_buffer);
+	rtBufferValidate(vertex_buffer);
+
+	error_handler(rtGeometryTrianglesSetVertices(geometry_triangles, no_triangles * 3, vertex_buffer, 0, sizeof(optix::float3), RT_FORMAT_FLOAT3));
+
+	/*RTprogram attribute_program;
+	error_handler(rtProgramCreateFromPTXFile(context, "optixtutorial.ptx", "attribute_program", &attribute_program));
+	error_handler(rtProgramValidate(attribute_program));
+	error_handler(rtGeometryTrianglesSetAttributeProgram(geometry_triangles, attribute_program));*/
+
+	error_handler(rtGeometryTrianglesValidate(geometry_triangles));
+
+	// material
+	RTmaterial material;
+	error_handler(rtMaterialCreate(context, &material));
+	RTprogram closest_hit;
+	error_handler(rtProgramCreateFromPTXFile(context, "optixtutorial.ptx", "closest_hit", &closest_hit));
+	error_handler(rtProgramValidate(closest_hit));
+	error_handler(rtMaterialSetClosestHitProgram(material, 0, closest_hit));
+	//rtMaterialSetAnyHitProgram( material, 0, any_hit );	
+	error_handler(rtMaterialValidate(material));
+
+	// geometry instance
+	RTgeometryinstance geometry_instance;
+	error_handler(rtGeometryInstanceCreate(context, &geometry_instance));
+	error_handler(rtGeometryInstanceSetGeometryTriangles(geometry_instance, geometry_triangles));
+	error_handler(rtGeometryInstanceSetMaterialCount(geometry_instance, 1));
+	error_handler(rtGeometryInstanceSetMaterial(geometry_instance, 0, material));
+	error_handler(rtGeometryInstanceValidate(geometry_instance));
+
+	// acceleration structure
+	RTacceleration sbvh;
+	error_handler(rtAccelerationCreate(context, &sbvh));
+	error_handler(rtAccelerationSetBuilder(sbvh, "Sbvh"));
+	//error_handler( rtAccelerationSetProperty( sbvh, "vertex_buffer_name", "vertex_buffer" ) );
+	error_handler(rtAccelerationValidate(sbvh));
+
+	// geometry group
+	RTgeometrygroup geometry_group;
+	error_handler(rtGeometryGroupCreate(context, &geometry_group));
+	error_handler(rtGeometryGroupSetAcceleration(geometry_group, sbvh));
+	error_handler(rtGeometryGroupSetChildCount(geometry_group, 1));
+	error_handler(rtGeometryGroupSetChild(geometry_group, 0, geometry_instance));
+	error_handler(rtGeometryGroupValidate(geometry_group));
+
+	RTvariable top_object;
+	error_handler(rtContextDeclareVariable(context, "top_object", &top_object));
+	error_handler(rtVariableSetObject(top_object, geometry_group));
 }
 
 int Raytracer::Ui()
@@ -220,7 +224,6 @@ int Raytracer::Ui()
 	static float f = 0.0f;
 	static int counter = 0;
 
-	// we use a Begin/End pair to created a named window
 	ImGui::Begin( "Ray Tracer Params" );
 	
 	ImGui::Text( "Surfaces = %d", surfaces_.size() );
@@ -228,32 +231,78 @@ int Raytracer::Ui()
 	ImGui::Separator();
 	ImGui::Checkbox( "Vsync", &vsync_ );
 	ImGui::Checkbox( "Unify normals", &unify_normals_ );	
-	
-	//ImGui::Combo( "Shader", &current_shader_, shaders_, IM_ARRAYSIZE( shaders_ ) );
-	
-	//ImGui::Checkbox( "Demo Window", &show_demo_window );      // Edit bools storing our window open/close state
-	//ImGui::Checkbox( "Another Window", &show_another_window );
 
-	ImGui::SliderFloat( "gamma", &gamma_, 0.1f, 5.0f );            // Edit 1 float using a slider from 0.0f to 1.0f    
-	//ImGui::ColorEdit3( "clear color", ( float* )&clear_color ); // Edit 3 floats representing a color
+	ImGui::SliderFloat( "gamma", &gamma_, 0.1f, 5.0f );
+	ImGui::SliderFloat("fov", &fov, 0.1f, 5.0f);
+	ImGui::SliderFloat("Mouse sensitivity", &mouseSensitivity, 0.1f, 100.0f);
+	ImGui::SliderInt("'Speed", &speed, 0, 10);
 
-	if ( ImGui::Button( "Button" ) )                            // Buttons return true when clicked (most widgets return true when edited/activated)
-		counter++;
-	ImGui::SameLine();
-	ImGui::Text( "counter = %d", counter );
+	bool arrowUpPressed = GetKeyState(VK_UP) & 0x8000 ? true : false;
+	bool arrowDownPressed = GetKeyState(VK_DOWN) & 0x8000 ? true : false;
+	bool arrowLeftPressed = GetKeyState(VK_LEFT) & 0x8000 ? true : false;
+	bool arrowRightPressed = GetKeyState(VK_RIGHT) & 0x8000 ? true : false;
+
+	if (arrowUpPressed) {
+		Vector3 forward = (camera.view_at() - camera.view_from());
+		forward.Normalize();
+		camera.updateViewAtAndViewFrom(camera.view_at() + 5 * forward, camera.view_from() + speed * forward);
+	}
+
+	if (arrowDownPressed) {
+		Vector3 forward = (camera.view_at() - camera.view_from());
+		forward.Normalize();
+		camera.updateViewAtAndViewFrom(camera.view_at() - 5 * forward, camera.view_from() - speed * forward);
+	}
+
+	if (arrowLeftPressed || arrowRightPressed) {
+		Vector3 forward = (camera.view_at() - camera.view_from());
+		forward.Normalize();
+		Vector3 right = forward.CrossProduct(camera.basis_y);
+		arrowLeftPressed ? camera.updateViewAtAndViewFrom(camera.view_at() - speed * right, camera.view_from() - speed * right) :
+						 camera.updateViewAtAndViewFrom(camera.view_at() + speed * right, camera.view_from() + speed * right);
+	}
+
+	bool wPressed, aPressed, sPressed, dPressed = false;
+
+	wPressed = GetKeyState('W') & 0x8000 ? true : false;
+	aPressed = GetKeyState('A') & 0x8000 ? true : false;
+	sPressed = GetKeyState('S') & 0x8000 ? true : false;
+	dPressed = GetKeyState('D') & 0x8000 ? true : false;
+
+	if (aPressed || dPressed) {
+		Vector3 forward = (camera.view_at() - camera.view_from());
+		double forwardL = forward.L2Norm();
+		forward.Normalize();
+		Vector3 right = forward.CrossProduct(camera.basis_y);
+		int yawRight = aPressed ? -1 : 1;
+
+		Vector3 newViewAt = camera.view_at() + yawRight * right * (aPressed || dPressed ? speed : mouseSensitivity);
+		double distanceRatio = forwardL / (newViewAt - camera.view_from()).L2Norm();
+		Vector3 newVector = (newViewAt - camera.view_from());
+		newVector *= distanceRatio;
+		newViewAt = camera.view_from() + newVector;
+		camera.updateViewAt(newViewAt);
+	}
+	
+	if (wPressed || sPressed) {
+		int pitchUp = wPressed ? -1 : 1;
+
+		Vector3 up = camera.basis_y;
+		Vector3 newViewAt = camera.view_at() + pitchUp * up * (wPressed || sPressed ? speed : mouseSensitivity);
+		camera.updateViewAt(newViewAt);
+	}
+
+	bool zPressed = GetKeyState('Z') & 0x8000 ? true : false;
+	bool cPressed = GetKeyState('C') & 0x8000 ? true : false;
+
+	if (zPressed || cPressed) {
+		int rollLeft = zPressed ? 1 : -1;
+		camera.updateUpVector(camera.basis_y + 0.05 * rollLeft * camera.basis_x);
+	}
+
+
 
 	ImGui::Text( "Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate );
 	ImGui::End();
-
-	// 3. Show another simple window.
-	/*if ( show_another_window )
-	{
-	ImGui::Begin( "Another Window", &show_another_window );   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-	ImGui::Text( "Hello from another window!" );
-	if ( ImGui::Button( "Close Me" ) )
-	show_another_window = false;
-	ImGui::End();
-	}*/
-
 	return 0;
 }

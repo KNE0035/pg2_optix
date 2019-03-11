@@ -19,6 +19,8 @@ public:
 	*/
 	Matrix3x3();
 
+	float* data();
+
 	//! Vıchozí konstruktor.
 	/*!
 	Inicializace matice zadanımi hodnotami. První index oznaèuje øádek, druhı index patøí sloupci.

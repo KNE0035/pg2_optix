@@ -1,6 +1,7 @@
 #pragma once
 #include "simpleguidx11.h"
 #include "structs.h"
+#include "imgui_internal.h"
 
 class SimpleGuiDX11
 {
@@ -32,9 +33,14 @@ protected:
 
 	int width() const;
 	int height() const;
+	ImRect imageRect;
 
 	bool vsync_{ true };
 	float gamma_{ 2.4f };
+	float mouseSensitivity = { 0.5 };
+	int speed = { 5 };
+
+	ImVec2 mousePoss;
 
 private:	
 	WNDCLASSEX wc_;
