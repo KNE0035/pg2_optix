@@ -245,13 +245,13 @@ int Raytracer::Ui()
 	if (arrowUpPressed) {
 		Vector3 forward = (camera.view_at() - camera.view_from());
 		forward.Normalize();
-		camera.updateViewAtAndViewFrom(camera.view_at() + 5 * forward, camera.view_from() + speed * forward);
+		camera.updateViewAtAndViewFrom(camera.view_at() + speed * forward, camera.view_from() + speed * forward);
 	}
 
 	if (arrowDownPressed) {
 		Vector3 forward = (camera.view_at() - camera.view_from());
 		forward.Normalize();
-		camera.updateViewAtAndViewFrom(camera.view_at() - 5 * forward, camera.view_from() - speed * forward);
+		camera.updateViewAtAndViewFrom(camera.view_at() - speed * forward, camera.view_from() - speed * forward);
 	}
 
 	if (arrowLeftPressed || arrowRightPressed) {
