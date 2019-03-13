@@ -296,7 +296,7 @@ int Raytracer::Ui()
 	bool cPressed = GetKeyState('C') & 0x8000 ? true : false;
 
 	if (zPressed || cPressed) {
-		int rollLeft = zPressed ? 1 : -1;
+		int rollLeft = zPressed ? -1 : 1;
 		camera.updateUpVector(camera.basis_y + 0.05 * rollLeft * camera.basis_x);
 	}
 
