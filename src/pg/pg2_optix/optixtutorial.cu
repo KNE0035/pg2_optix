@@ -21,13 +21,14 @@ rtDeclareVariable(optix::float3, view_from, , );
 rtDeclareVariable(optix::Matrix3x3, M_c_w, , "camera to worldspace transformation matrix" );
 rtDeclareVariable(float, focal_length, , "focal length in pixels" );
 
-/*RT_PROGRAM void attribute_program( void )
+/*
+RT_PROGRAM void attribute_program( void )
 {
-	const optix::float2 barycentrics = rtGetTriangleBarycentrics();
 	const unsigned int index = rtGetPrimitiveIndex();
 	const optix::float3 n0 = normal_buffer[index * 3 + 0];
 	const optix::float3 n1 = normal_buffer[index * 3 + 1];
 	const optix::float3 n2 = normal_buffer[index * 3 + 2];
+	optix::float3 normal = optix::normalize(n1 * barycentrics.x + n2 * barycentrics.y + n0 * (1.0f - barycentrics.x - barycentrics.y));
 
 	//attribs.normal = optix::normalize(n1 * barycentrics.x + n2 * barycentrics.y + n0 * (1.0f - barycentrics.x - barycentrics.y));
 }*/

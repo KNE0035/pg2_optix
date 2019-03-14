@@ -172,6 +172,8 @@ void Raytracer::LoadScene( const std::string file_name )
 	rtVariableSetObject(materialIndices, material_buffer);
 	rtBufferValidate(vertex_buffer);
 
+	error_handler(rtGeometryTrianglesSetMaterialCount(geometry_triangles, 2));
+	error_handler(rtGeometryTrianglesSetMaterialIndices(geometry_triangles, material_buffer, 0, sizeof(optix::uchar1), RT_FORMAT_UNSIGNED_BYTE));
 	error_handler(rtGeometryTrianglesSetVertices(geometry_triangles, no_triangles * 3, vertex_buffer, 0, sizeof(optix::float3), RT_FORMAT_FLOAT3));
 
 	/*RTprogram attribute_program;
@@ -195,8 +197,9 @@ void Raytracer::LoadScene( const std::string file_name )
 	RTgeometryinstance geometry_instance;
 	error_handler(rtGeometryInstanceCreate(context, &geometry_instance));
 	error_handler(rtGeometryInstanceSetGeometryTriangles(geometry_instance, geometry_triangles));
-	error_handler(rtGeometryInstanceSetMaterialCount(geometry_instance, 1));
+	error_handler(rtGeometryInstanceSetMaterialCount(geometry_instance, 2));
 	error_handler(rtGeometryInstanceSetMaterial(geometry_instance, 0, material));
+	error_handler(rtGeometryInstanceSetMaterial(geometry_instance, 1, material));
 	error_handler(rtGeometryInstanceValidate(geometry_instance));
 
 	// acceleration structure
@@ -242,24 +245,26 @@ int Raytracer::Ui()
 	bool arrowLeftPressed = GetKeyState(VK_LEFT) & 0x8000 ? true : false;
 	bool arrowRightPressed = GetKeyState(VK_RIGHT) & 0x8000 ? true : false;
 
+	double frameSpeed = speed * (60 / ImGui::GetIO().Framerate);
+
 	if (arrowUpPressed) {
 		Vector3 forward = (camera.view_at() - camera.view_from());
 		forward.Normalize();
-		camera.updateViewAtAndViewFrom(camera.view_at() + speed * forward, camera.view_from() + speed * forward);
+		camera.updateViewAtAndViewFrom(camera.view_at() + frameSpeed * frameSpeed * forward, camera.view_from() + frameSpeed * forward);
 	}
 
 	if (arrowDownPressed) {
 		Vector3 forward = (camera.view_at() - camera.view_from());
 		forward.Normalize();
-		camera.updateViewAtAndViewFrom(camera.view_at() - speed * forward, camera.view_from() - speed * forward);
+		camera.updateViewAtAndViewFrom(camera.view_at() - frameSpeed * forward, camera.view_from() - frameSpeed * forward);
 	}
 
 	if (arrowLeftPressed || arrowRightPressed) {
 		Vector3 forward = (camera.view_at() - camera.view_from());
 		forward.Normalize();
 		Vector3 right = forward.CrossProduct(camera.basis_y);
-		arrowLeftPressed ? camera.updateViewAtAndViewFrom(camera.view_at() - speed * right, camera.view_from() - speed * right) :
-						 camera.updateViewAtAndViewFrom(camera.view_at() + speed * right, camera.view_from() + speed * right);
+		arrowLeftPressed ? camera.updateViewAtAndViewFrom(camera.view_at() - frameSpeed * right, camera.view_from() - frameSpeed * right) :
+						 camera.updateViewAtAndViewFrom(camera.view_at() + frameSpeed * right, camera.view_from() + frameSpeed * right);
 	}
 
 	bool wPressed, aPressed, sPressed, dPressed = false;
@@ -276,7 +281,7 @@ int Raytracer::Ui()
 		Vector3 right = forward.CrossProduct(camera.basis_y);
 		int yawRight = aPressed ? -1 : 1;
 
-		Vector3 newViewAt = camera.view_at() + yawRight * right * (aPressed || dPressed ? speed : mouseSensitivity);
+		Vector3 newViewAt = camera.view_at() + yawRight * right * frameSpeed;
 		double distanceRatio = forwardL / (newViewAt - camera.view_from()).L2Norm();
 		Vector3 newVector = (newViewAt - camera.view_from());
 		newVector *= distanceRatio;
@@ -288,7 +293,7 @@ int Raytracer::Ui()
 		int pitchUp = wPressed ? -1 : 1;
 
 		Vector3 up = camera.basis_y;
-		Vector3 newViewAt = camera.view_at() + pitchUp * up * (wPressed || sPressed ? speed : mouseSensitivity);
+		Vector3 newViewAt = camera.view_at() + pitchUp * up * frameSpeed;
 		camera.updateViewAt(newViewAt);
 	}
 
@@ -297,7 +302,7 @@ int Raytracer::Ui()
 
 	if (zPressed || cPressed) {
 		int rollLeft = zPressed ? -1 : 1;
-		camera.updateUpVector(camera.basis_y + 0.05 * rollLeft * camera.basis_x);
+		camera.updateUpVector(camera.basis_y + 0.05 * frameSpeed * rollLeft * camera.basis_x);
 	}
 
 
