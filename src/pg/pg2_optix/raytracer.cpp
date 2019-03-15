@@ -78,6 +78,7 @@ int Raytracer::initGraph() {
 
 int Raytracer::get_image(BYTE * buffer) {
 	camera.updateFov(fov);
+	camera.recalculateMcw();
 	rtVariableSet3f(view_from, camera.view_from().x, camera.view_from().y, camera.view_from().z);
 	rtVariableSet1f(focal_length, camera.focalLength());
 	rtVariableSetMatrix3x3fv(M_c_w, 0, camera.M_c_w().data());
@@ -244,68 +245,27 @@ int Raytracer::Ui()
 	bool arrowDownPressed = GetKeyState(VK_DOWN) & 0x8000 ? true : false;
 	bool arrowLeftPressed = GetKeyState(VK_LEFT) & 0x8000 ? true : false;
 	bool arrowRightPressed = GetKeyState(VK_RIGHT) & 0x8000 ? true : false;
-
-	double frameSpeed = speed * (60 / ImGui::GetIO().Framerate);
-
-	if (arrowUpPressed) {
-		Vector3 forward = (camera.view_at() - camera.view_from());
-		forward.Normalize();
-		camera.updateViewAtAndViewFrom(camera.view_at() + frameSpeed * frameSpeed * forward, camera.view_from() + frameSpeed * forward);
-	}
-
-	if (arrowDownPressed) {
-		Vector3 forward = (camera.view_at() - camera.view_from());
-		forward.Normalize();
-		camera.updateViewAtAndViewFrom(camera.view_at() - frameSpeed * forward, camera.view_from() - frameSpeed * forward);
-	}
-
-	if (arrowLeftPressed || arrowRightPressed) {
-		Vector3 forward = (camera.view_at() - camera.view_from());
-		forward.Normalize();
-		Vector3 right = forward.CrossProduct(camera.basis_y);
-		arrowLeftPressed ? camera.updateViewAtAndViewFrom(camera.view_at() - frameSpeed * right, camera.view_from() - frameSpeed * right) :
-						 camera.updateViewAtAndViewFrom(camera.view_at() + frameSpeed * right, camera.view_from() + frameSpeed * right);
-	}
-
-	bool wPressed, aPressed, sPressed, dPressed = false;
-
-	wPressed = GetKeyState('W') & 0x8000 ? true : false;
-	aPressed = GetKeyState('A') & 0x8000 ? true : false;
-	sPressed = GetKeyState('S') & 0x8000 ? true : false;
-	dPressed = GetKeyState('D') & 0x8000 ? true : false;
-
-	if (aPressed || dPressed) {
-		Vector3 forward = (camera.view_at() - camera.view_from());
-		double forwardL = forward.L2Norm();
-		forward.Normalize();
-		Vector3 right = forward.CrossProduct(camera.basis_y);
-		int yawRight = aPressed ? -1 : 1;
-
-		Vector3 newViewAt = camera.view_at() + yawRight * right * frameSpeed;
-		double distanceRatio = forwardL / (newViewAt - camera.view_from()).L2Norm();
-		Vector3 newVector = (newViewAt - camera.view_from());
-		newVector *= distanceRatio;
-		newViewAt = camera.view_from() + newVector;
-		camera.updateViewAt(newViewAt);
-	}
-	
-	if (wPressed || sPressed) {
-		int pitchUp = wPressed ? -1 : 1;
-
-		Vector3 up = camera.basis_y;
-		Vector3 newViewAt = camera.view_at() + pitchUp * up * frameSpeed;
-		camera.updateViewAt(newViewAt);
-	}
-
+	bool wPressed = GetKeyState('W') & 0x8000 ? true : false;
+	bool aPressed = GetKeyState('A') & 0x8000 ? true : false;
+	bool sPressed = GetKeyState('S') & 0x8000 ? true : false;
+	bool dPressed = GetKeyState('D') & 0x8000 ? true : false;
 	bool zPressed = GetKeyState('Z') & 0x8000 ? true : false;
 	bool cPressed = GetKeyState('C') & 0x8000 ? true : false;
 
-	if (zPressed || cPressed) {
-		int rollLeft = zPressed ? -1 : 1;
-		camera.updateUpVector(camera.basis_y + 0.05 * frameSpeed * rollLeft * camera.basis_x);
-	}
+	float time = ImGui::GetIO().DeltaTime * 60;
 
+	double frameStep = speed * time;
 
+	if (arrowUpPressed) camera.moveForward(frameStep);
+	if (arrowDownPressed) camera.moveForward(-frameStep);
+	if (arrowRightPressed) camera.moveRight(frameStep);
+	if (arrowLeftPressed) camera.moveRight(-frameStep);
+	if (dPressed) camera.rotateRight(frameStep);
+	if (aPressed) camera.rotateRight(-frameStep);
+	if (sPressed) camera.rotateUp(frameStep);
+	if (wPressed) camera.rotateUp(-frameStep);
+	if (cPressed) camera.rollRight(frameStep);
+	if (zPressed) camera.rollRight(-frameStep);
 
 	ImGui::Text( "Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate );
 	ImGui::End();

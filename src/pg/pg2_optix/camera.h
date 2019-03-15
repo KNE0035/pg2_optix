@@ -27,16 +27,19 @@ public:
 	Vector3 basis_x;
 	Vector3 basis_z;
 
+	void moveForward(double frameStep);
+	void moveRight(double frameStep);
+	void rotateRight(double frameStep);
+	void rotateUp(double frameStep);
+	void rollRight(double frameStep);
+
 	void recalculateMcw();
-	void updateViewFrom(const Vector3 view_from);
-	void updateUpVector(const Vector3 up);
-	void updateViewAt(const Vector3 view_at);
-	void updateViewAtAndViewFrom(const Vector3 view_at, const Vector3 view_from);
 	void updateFov(const float fov_y);
 private:
 	int width_{ 640 }; // image width (px)
 	int height_{ 480 };  // image height (px)
 	float fov_y_{ 0.785f }; // vertical field of view (rad)
+	bool mcwUpdate = true;
 	
 	Vector3 view_from_; // ray origin or eye or O
 	Vector3 view_at_; // target T
