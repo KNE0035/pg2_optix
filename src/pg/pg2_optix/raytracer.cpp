@@ -5,6 +5,17 @@
 #include "mymath.h"
 #include "omp.h"
 
+void Raytracer::error_handler(RTresult code)
+{
+	if (code != RT_SUCCESS)
+	{
+		const char* error_string;
+		rtContextGetErrorString(context, code, &error_string);
+		printf(error_string);
+		throw std::runtime_error("RT_ERROR_UNKNOWN");
+	}
+}
+
 Raytracer::Raytracer( const int width, const int height, const float fov_y, const Vector3 view_from, const Vector3 view_at) : SimpleGuiDX11( width, height )
 {
 	InitDeviceAndScene();
@@ -20,7 +31,7 @@ Raytracer::~Raytracer()
 int Raytracer::InitDeviceAndScene()
 {	
 	error_handler(rtContextCreate(&context));
-	error_handler(rtContextSetRayTypeCount(context, 1));
+	error_handler(rtContextSetRayTypeCount(context, 2));
 	error_handler(rtContextSetEntryPointCount(context, 1));
 	error_handler(rtContextSetMaxTraceDepth(context, 10));
 
@@ -36,12 +47,9 @@ int Raytracer::InitDeviceAndScene()
 	error_handler(rtContextSetRayGenerationProgram(context, 0, primary_ray));
 	error_handler(rtProgramValidate(primary_ray));
 
-	rtProgramDeclareVariable(primary_ray, "focal_length",
-		&focal_length);
-	rtProgramDeclareVariable(primary_ray, "view_from",
-		&view_from);
-	rtProgramDeclareVariable(primary_ray, "M_c_w",
-		&M_c_w);
+	rtProgramDeclareVariable(primary_ray, "focal_length", &focal_length);
+	rtProgramDeclareVariable(primary_ray, "view_from", &view_from);
+	rtProgramDeclareVariable(primary_ray, "M_c_w", &M_c_w);
 
 	rtVariableSet3f(view_from, camera.view_from().x, camera.view_from().y, camera.view_from().z);
 	rtVariableSet1f(focal_length, camera.focalLength());
@@ -118,6 +126,13 @@ void Raytracer::LoadScene( const std::string file_name )
 	error_handler(rtBufferSetFormat(normal_buffer, RT_FORMAT_FLOAT3));
 	error_handler(rtBufferSetSize1D(normal_buffer, no_triangles * 3));
 
+	RTvariable texcoords;
+	rtContextDeclareVariable(context, "texcoord_buffer", &texcoords);
+	RTbuffer texcoord_buffer;
+	error_handler(rtBufferCreate(context, RT_BUFFER_INPUT, &texcoord_buffer));
+	error_handler(rtBufferSetFormat(texcoord_buffer, RT_FORMAT_FLOAT2));
+	error_handler(rtBufferSetSize1D(texcoord_buffer, no_triangles * 3));
+
 	RTvariable materialIndices;
 	rtContextDeclareVariable(context, "material_buffer", &materialIndices);
 	RTbuffer material_buffer;
@@ -128,22 +143,23 @@ void Raytracer::LoadScene( const std::string file_name )
 	optix::float3* vertexData = nullptr;
 	optix::float3* normalData = nullptr;
 	optix::uchar1* materialData = nullptr;
+	optix::float2* texcoordData = nullptr;
 
 	error_handler(rtBufferMap(vertex_buffer, (void**)(&vertexData)));
 	error_handler(rtBufferMap(normal_buffer, (void**)(&normalData)));
 	error_handler(rtBufferMap(material_buffer, (void**)(&materialData)));
+	error_handler(rtBufferMap(texcoord_buffer, (void**)(&texcoordData)));
 
 	// surfaces loop
 	int k = 0, l = 0;
 	for ( auto surface : surfaces_ )
 	{		
-
 		// triangles loop
 		for (int i = 0; i < surface->no_triangles(); ++i, ++l )
 		{
 			Triangle & triangle = surface->get_triangle( i );
 
-			materialData[l].x = (unsigned char)surface->get_material()->shader();
+			materialData[l].x = (unsigned char)surface->get_material()->materialIndex;
 
 			// vertices loop
 			for ( int j = 0; j < 3; ++j, ++k )
@@ -156,6 +172,9 @@ void Raytracer::LoadScene( const std::string file_name )
 				normalData[k].x = vertex.normal.x;
 				normalData[k].y = vertex.normal.y;
 				normalData[k].z = vertex.normal.z;
+
+				texcoordData[k].x = vertex.texture_coords->u;
+				texcoordData[k].y = vertex.texture_coords->v;
 			} // end of vertices loop
 
 		} // end of triangles loop
@@ -165,6 +184,10 @@ void Raytracer::LoadScene( const std::string file_name )
 	rtBufferUnmap(normal_buffer);
 	rtBufferUnmap(material_buffer);
 	rtBufferUnmap(vertex_buffer);
+	rtBufferUnmap(texcoord_buffer);
+
+	rtBufferValidate(texcoord_buffer);
+	rtVariableSetObject(texcoords, texcoord_buffer);
 
 	rtBufferValidate(normal_buffer);
 	rtVariableSetObject(normals, normal_buffer);
@@ -173,41 +196,111 @@ void Raytracer::LoadScene( const std::string file_name )
 	rtVariableSetObject(materialIndices, material_buffer);
 	rtBufferValidate(vertex_buffer);
 
-	error_handler(rtGeometryTrianglesSetMaterialCount(geometry_triangles, 2));
+	error_handler(rtGeometryTrianglesSetMaterialCount(geometry_triangles, materials_.size()));
 	error_handler(rtGeometryTrianglesSetMaterialIndices(geometry_triangles, material_buffer, 0, sizeof(optix::uchar1), RT_FORMAT_UNSIGNED_BYTE));
 	error_handler(rtGeometryTrianglesSetVertices(geometry_triangles, no_triangles * 3, vertex_buffer, 0, sizeof(optix::float3), RT_FORMAT_FLOAT3));
 
-	/*RTprogram attribute_program;
+	RTprogram attribute_program;
 	error_handler(rtProgramCreateFromPTXFile(context, "optixtutorial.ptx", "attribute_program", &attribute_program));
 	error_handler(rtProgramValidate(attribute_program));
-	error_handler(rtGeometryTrianglesSetAttributeProgram(geometry_triangles, attribute_program));*/
+	error_handler(rtGeometryTrianglesSetAttributeProgram(geometry_triangles, attribute_program));
 
 	error_handler(rtGeometryTrianglesValidate(geometry_triangles));
-
-	// material
-	RTmaterial material;
-	error_handler(rtMaterialCreate(context, &material));
-	RTprogram closest_hit;
-	error_handler(rtProgramCreateFromPTXFile(context, "optixtutorial.ptx", "closest_hit", &closest_hit));
-	error_handler(rtProgramValidate(closest_hit));
-	error_handler(rtMaterialSetClosestHitProgram(material, 0, closest_hit));
-	//rtMaterialSetAnyHitProgram( material, 0, any_hit );	
-	error_handler(rtMaterialValidate(material));
 
 	// geometry instance
 	RTgeometryinstance geometry_instance;
 	error_handler(rtGeometryInstanceCreate(context, &geometry_instance));
 	error_handler(rtGeometryInstanceSetGeometryTriangles(geometry_instance, geometry_triangles));
-	error_handler(rtGeometryInstanceSetMaterialCount(geometry_instance, 2));
-	error_handler(rtGeometryInstanceSetMaterial(geometry_instance, 0, material));
-	error_handler(rtGeometryInstanceSetMaterial(geometry_instance, 1, material));
+	error_handler(rtGeometryInstanceSetMaterialCount(geometry_instance, materials_.size()));
+
+	RTprogram any_hit;
+	error_handler(rtProgramCreateFromPTXFile(context, "optixtutorial.ptx", "any_hit", &any_hit));
+	error_handler(rtProgramValidate(any_hit));
+
+	int next_tex_diffuse_id = 0;
+	for (Material* material : materials_) {
+		RTmaterial rtMaterial;
+		error_handler(rtMaterialCreate(context, &rtMaterial));
+		RTprogram closest_hit;
+		
+		switch (material->shader())
+		{
+			case Shader::NORMAL:
+				error_handler(rtProgramCreateFromPTXFile(context, "optixtutorial.ptx", "closest_hit_normal_shader", &closest_hit));
+				break;
+			case Shader::LAMBERT:
+				error_handler(rtProgramCreateFromPTXFile(context, "optixtutorial.ptx", "closest_hit_lambert_shader", &closest_hit));
+				break;
+			case Shader::PHONG:
+				error_handler(rtProgramCreateFromPTXFile(context, "optixtutorial.ptx", "closest_hit_phong_shader", &closest_hit));
+				break;
+			case Shader::MIRROR:
+				error_handler(rtProgramCreateFromPTXFile(context, "optixtutorial.ptx", "closest_hit_mirror_shader", &closest_hit));
+				break;
+			case Shader::GLASS:
+				error_handler(rtProgramCreateFromPTXFile(context, "optixtutorial.ptx", "closest_hit_glass_shader", &closest_hit));
+				break;
+			case Shader::PBR:
+				error_handler(rtProgramCreateFromPTXFile(context, "optixtutorial.ptx", "closest_hit_pbr_shader", &closest_hit));
+				break;
+			default:
+				error_handler(rtProgramCreateFromPTXFile(context, "optixtutorial.ptx", "closest_hit_normal_shader", &closest_hit));
+				break;
+		}
+
+		RTvariable diffuse;
+		rtMaterialDeclareVariable(rtMaterial, "diffuse", &diffuse);
+		rtVariableSet3f(diffuse, material->diffuse().r, material->diffuse().g, material->diffuse().b);
+		RTvariable tex_diffuse_id;
+		rtMaterialDeclareVariable(rtMaterial, "tex_diffuse_id", &tex_diffuse_id);
+
+		if (material->texture(material->kDiffuseMapSlot) != NULL) {
+			RTtexturesampler textureSampler;
+			rtTextureSamplerCreate(context, &textureSampler);
+			int texture_id;
+			rtTextureSamplerGetId(textureSampler, &texture_id);
+			
+			optix::float4* textureData = nullptr;
+
+			rtVariableSet1i(tex_diffuse_id, texture_id);
+			Texture* texture = material->texture(material->kDiffuseMapSlot);
+			RTbuffer texture_buffer;
+			error_handler(rtBufferCreate(context, RT_BUFFER_INPUT, &texture_buffer));
+			error_handler(rtBufferSetFormat(texture_buffer, RT_FORMAT_FLOAT4));
+			error_handler(rtBufferSetSize2D(texture_buffer, texture->width(), texture->height()));
+			error_handler(rtBufferMap(texture_buffer, (void**)(&textureData)));
+			
+			for (int i = 0; i < (texture->height() * texture->width()); i++) {
+				textureData[i] = optix::make_float4(texture->getData()[3 * i + 2] / 255.0f, texture->getData()[3 * i + 1] / 255.0f, texture->getData()[3*i] / 255.0f, 1);
+			}
+
+			/*for (int i = 0; i < texture->height() * texture->width(); i++) {
+				printf("%f %d %f %f\n", textureData[i].x, textureData[i].y, textureData[i].z, textureData[i].w);
+			}*/
+
+			rtTextureSamplerSetReadMode(textureSampler, RT_TEXTURE_READ_NORMALIZED_FLOAT);
+
+			error_handler(rtBufferUnmap(texture_buffer));
+			error_handler(rtTextureSamplerSetBuffer(textureSampler, 0, 0, texture_buffer));
+			error_handler(rtTextureSamplerValidate(textureSampler));
+		}
+		else {
+			rtVariableSet1i(tex_diffuse_id, -1);
+		}
+
+		error_handler(rtProgramValidate(closest_hit));
+		error_handler(rtMaterialSetClosestHitProgram(rtMaterial, 0, closest_hit));
+		error_handler(rtMaterialSetAnyHitProgram(rtMaterial, 1, any_hit));
+		error_handler(rtMaterialValidate(rtMaterial));
+
+		error_handler(rtGeometryInstanceSetMaterial(geometry_instance, material->materialIndex, rtMaterial));
+	}
 	error_handler(rtGeometryInstanceValidate(geometry_instance));
 
 	// acceleration structure
 	RTacceleration sbvh;
 	error_handler(rtAccelerationCreate(context, &sbvh));
 	error_handler(rtAccelerationSetBuilder(sbvh, "Sbvh"));
-	//error_handler( rtAccelerationSetProperty( sbvh, "vertex_buffer_name", "vertex_buffer" ) );
 	error_handler(rtAccelerationValidate(sbvh));
 
 	// geometry group
@@ -266,6 +359,8 @@ int Raytracer::Ui()
 	if (wPressed) camera.rotateUp(-frameStep);
 	if (cPressed) camera.rollRight(frameStep);
 	if (zPressed) camera.rollRight(-frameStep);
+
+	//printf("%f %f %f \n", camera.view_from().x, camera.view_from().y, camera.view_from().z);
 
 	ImGui::Text( "Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate );
 	ImGui::End();

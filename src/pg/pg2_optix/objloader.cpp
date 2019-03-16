@@ -99,6 +99,7 @@ int LoadMTL( const char * file_name, const char * path, std::vector<Material *> 
 
 	Material * material = NULL;
 
+	int nextMaterialIndex = 0;
 	// --- naèítání všech materiálù ---
 	while ( line != NULL )
 	{
@@ -121,6 +122,8 @@ int LoadMTL( const char * file_name, const char * path, std::vector<Material *> 
 				//printf( "material name=%s\n", material_name );				
 
 				material = new Material();
+				material->materialIndex = nextMaterialIndex;
+				nextMaterialIndex++;
 			}
 			else
 			{

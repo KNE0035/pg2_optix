@@ -39,9 +39,6 @@ protected:
 	float gamma_{ 2.4f };
 	float mouseSensitivity = { 0.5 };
 	int speed = { 5 };
-
-	ImVec2 mousePoss;
-
 private:	
 	WNDCLASSEX wc_;
 	HWND hwnd_;

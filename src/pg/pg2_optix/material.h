@@ -122,6 +122,8 @@ public:
 	float reflectivity; /*!< Koeficient odrazivosti. */
 	float ior; /*!< Index lomu. */
 
+	int materialIndex;
+
 	static const char kDiffuseMapSlot; /*!< Èíslo slotu difuzní textury. */
 	static const char kSpecularMapSlot; /*!< Èíslo slotu spekulární textury. */
 	static const char kNormalMapSlot; /*!< Èíslo slotu normálové textury. */

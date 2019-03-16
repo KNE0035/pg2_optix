@@ -42,8 +42,7 @@ Texture::Texture( const char * file_name )
 
 				data_ = new BYTE[scan_width_ * height_]; // BGR(A) format									
 				
-				FreeImage_ConvertToRawBits( data_, dib, scan_width_, pixel_size_ * 8,
-					FI_RGBA_RED_MASK, FI_RGBA_GREEN_MASK, FI_RGBA_BLUE_MASK, TRUE );
+				FreeImage_ConvertToRawBits( data_, dib, scan_width_, pixel_size_ * 8, FI_RGBA_RED_MASK, FI_RGBA_GREEN_MASK, FI_RGBA_BLUE_MASK, TRUE );
 			}
 
 			FreeImage_Unload( dib );			
@@ -140,3 +139,8 @@ int Texture::height() const
 {
 	return height_;
 }
+
+BYTE * Texture::getData() {
+	return data_;
+}
+

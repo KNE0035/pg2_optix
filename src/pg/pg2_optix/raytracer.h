@@ -38,4 +38,5 @@ private:
 	float fov;
 
 	bool unify_normals_{ true };
+	void error_handler(RTresult code);
 };

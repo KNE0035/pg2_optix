@@ -7,7 +7,6 @@ SimpleGuiDX11::SimpleGuiDX11( const int width, const int height)
 {
 	width_ = width;
 	height_ = height;
-	mousePoss = ImVec2(0, 0);
 	Init();
 }
 
@@ -308,7 +307,7 @@ HRESULT SimpleGuiDX11::CreateTexture()
 		desc.Height = height_;
 		desc.MipLevels = 1;
 		desc.ArraySize = 1;
-		desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM; // DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB
+		desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM; // DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB
 		desc.SampleDesc.Count = 1;
 		desc.SampleDesc.Quality = 0;
 		desc.Usage = D3D11_USAGE_DYNAMIC;
