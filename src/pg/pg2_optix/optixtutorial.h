@@ -3,6 +3,7 @@
 #include "math_constants.h"
 
 __device__ optix::float3 sampleHemisphere(optix::float3 normal, curandState_t* state, float& pdf);
+__device__ optix::float3 orthogonal(const optix::float3 & v);
 
 struct PerRayData_radiance
 {

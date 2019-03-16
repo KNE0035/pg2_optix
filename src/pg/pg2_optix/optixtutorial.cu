@@ -52,8 +52,8 @@ RT_PROGRAM void primary_ray( void )
 	prd.state = &state;
 	curand_init(launch_index.x + launch_dim.x * launch_index.y, 0, 0, prd.state);
 
-	int ANTI_ALIASING_SAMPLES = 8;
-	int NO_SAMPLES = 30;
+	int ANTI_ALIASING_SAMPLES = 16;
+	int NO_SAMPLES = 60;
 
 	optix::float3 resultColor = optix::make_float3(0.0f, 0.0f, 0.0f);
 	for (int i = 0; i < ANTI_ALIASING_SAMPLES; i++)
@@ -68,12 +68,15 @@ RT_PROGRAM void primary_ray( void )
 		const optix::float3 d_w = optix::normalize(M_c_w * d_c);
 		optix::Ray ray(view_from, d_w, 0, 0.01f);
 
+		optix::float3 ambientColor = optix::make_float3(0.0f, 0.0f, 0.0f);
 		for (int j = 0; j < NO_SAMPLES; j++) {
 			rtTrace(top_object, ray, prd);
-			resultColor += prd.result;
+			ambientColor += prd.result;
 		}
+		ambientColor /= NO_SAMPLES;
+		resultColor += ambientColor;
 	}
-	resultColor /= ANTI_ALIASING_SAMPLES;
+	resultColor /=  ANTI_ALIASING_SAMPLES;
 	output_buffer[launch_index] = optix::make_uchar4(resultColor.x*255.0f, resultColor.y*255.0f, resultColor.z*255.0f, 255 );
 }
 
@@ -104,13 +107,12 @@ RT_PROGRAM void closest_hit_lambert_shader(void)
 	float pdf = 0;
 	optix::float3 omegai = sampleHemisphere(normal, ray_data.state, pdf);
 	
-	optix::Ray ray(intersectionPoint, omegai, 1, 0.01f);
+	optix::Ray ray(intersectionPoint, omegai, 1, 0.01f, 10.0f);
 	PerRayData_shadow shadow_ray;
 	shadow_ray.visible.x = 1;
 	rtTrace(top_object, ray, shadow_ray);
 
 	optix::float3 color;
-
 	if (tex_diffuse_id != -1) {
 		const optix::float4 value = optix::rtTex2D<optix::float4>(tex_diffuse_id, attribs.texcoord.x, 1 - attribs.texcoord.y);
 		color = optix::make_float3(value.x, value.y, value.z);
@@ -119,7 +121,7 @@ RT_PROGRAM void closest_hit_lambert_shader(void)
 		color = optix::make_float3(diffuse.x, diffuse.y, diffuse.z);
 	}
 
-	ray_data.result = color * (normalLigthScalarProduct * optix::dot(normal, omegai) * shadow_ray.visible.x * (1 / CUDART_PI_F * pdf));
+	ray_data.result = color * normalLigthScalarProduct * optix::dot(normal, omegai) * shadow_ray.visible.x / CUDART_PI_F / pdf;
 }
 
 RT_PROGRAM void closest_hit_phong_shader(void)
@@ -140,8 +142,9 @@ RT_PROGRAM void closest_hit_mirror_shader(void)
 
 RT_PROGRAM void any_hit(void)
 {
-	//if (diffuse.x == 1.0) {
+	//if (diffuse.x <= 0.2) {
 		shadow_ray_data.visible.x = 0;
+	//}
 	//}
 	//else {
 	//	shadow_ray_data.visible.x = 0;
@@ -163,19 +166,25 @@ RT_PROGRAM void exception( void )
 	rtPrintExceptionDetails();
 	output_buffer[launch_index] = uchar4{ 255, 0, 255, 0 };
 }__device__ optix::float3 sampleHemisphere(optix::float3 normal, curandState_t* state, float& pdf) {
-	float randomU = curand_uniform(state);	
+	float randomU = curand_uniform(state);
 	float randomV = curand_uniform(state);
 
-	float x = 2 * cosf(2 * CUDART_PI_F * randomU) * sqrtf(randomV * (1 - randomV));
-	float y = 2 * sinf(2 * CUDART_PI_F * randomU) * sqrtf(randomV * (1 - randomV));
-	float z = 1 - 2 * randomV;
+	float x = cosf(2 * CUDART_PI_F * randomU) * sqrtf(1 - randomV);
+	float y = sinf(2 * CUDART_PI_F * randomU) * sqrtf(1 - randomV);
+	float z = sqrtf(randomV);
 
-	optix::float3 omegai = optix::make_float3(x, y , z);
+	optix::float3 O1 = optix::normalize(orthogonal(normal));
+	optix::float3 O2 = optix::normalize(optix::cross(normal, O1));
 
-	if (optix::dot(normal, omegai) < 0) 
-	{
-		omegai *= -1;
-	}
+	optix::Matrix3x3 transformationMatrix = optix::make_matrix3x3(optix::Matrix<4, 4>::fromBasis(O1, O2, normal, optix::make_float3(0.0f, 0.0f, 0.0f) ));
 
-	pdf = 1 / (2 * CUDART_PI_F);
-	return omegai;}
+	optix::float3 omegai = optix::make_float3(x, y, z);
+
+	omegai = optix::normalize(transformationMatrix * omegai);
+
+	pdf = optix::dot(normal, omegai) / CUDART_PI_F;
+
+	return omegai;}__device__ optix::float3 orthogonal(const optix::float3 & v)
+{
+	return (abs(v.x) > abs(v.z)) ? optix::make_float3(-v.y, v.x, 0.0f) : optix::make_float3(0.0f, -v.z, v.y);
+}
