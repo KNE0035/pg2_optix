@@ -61,7 +61,7 @@ RT_PROGRAM void primary_ray( void )
 	prd.state = &state;
 	curand_init(launch_index.x + launch_dim.x * launch_index.y, 0, 0, prd.state);
 	int ANTI_ALIASING_SAMPLES = 8;
-	int NO_SAMPLES = 64;
+	int NO_SAMPLES = 8;
 
 	optix::float3 resultColor = optix::make_float3(0.0f, 0.0f, 0.0f);
 	for (int i = 0; i < ANTI_ALIASING_SAMPLES; i++)
@@ -105,7 +105,6 @@ RT_PROGRAM void closest_hit_lambert_shader(void)
 RT_PROGRAM void closest_hit_phong_shader(void)
 {
 	float normalLigthScalarProduct = optix::dot(hitInfo.vectorToLight, hitInfo.normal);
-	float normalViewScalarProduct = optix::dot(hitInfo.normal, ray.direction);
 
 	optix::float3 lr = 2 * (normalLigthScalarProduct)* hitInfo.normal - hitInfo.vectorToLight;
 	
