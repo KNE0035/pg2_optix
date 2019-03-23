@@ -1,4 +1,5 @@
 #include "pch.h"
+#include "utils.h"
 
 using std::mt19937;
 using std::uniform_real_distribution;
@@ -198,4 +199,21 @@ char * RTrim( char * s )
 char * Trim( char * s )
 {
 	return RTrim( LTrim( s ) );
+}
+
+RTresult createAndSetMaterialColorVariable(RTmaterial rtMaterial, const char* label, Color3f color) {
+	RTresult result;
+	RTvariable materialColor;
+	result = rtMaterialDeclareVariable(rtMaterial, label, &materialColor);
+	result = rtVariableSet3f(materialColor, color.r, color.g, color.b);
+
+	return result;
+}
+
+RTresult createAndSetMaterialScalarVariable(RTmaterial rtMaterial, const char* label, float scalar){
+	RTresult result;
+	RTvariable materialScalar;
+	result = rtMaterialDeclareVariable(rtMaterial, label, &materialScalar);
+	result = rtVariableSet1f(materialScalar, scalar);
+	return result;
 }

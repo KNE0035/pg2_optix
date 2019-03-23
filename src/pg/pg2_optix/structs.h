@@ -1,3 +1,5 @@
+#ifndef STRUCTS
+#define STRUCTS
 #pragma once
 
 #include "vector3.h"
@@ -122,3 +124,4 @@ struct Color4f /*: public Color3f*/
 
 	bool is_valid() const;
 };
+#endif // !STRUCTS

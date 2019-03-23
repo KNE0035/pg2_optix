@@ -1,6 +1,9 @@
 #ifndef UTILS_H_
 #define UTILS_H_
 
+#include "pch.h"
+#include "mymath.h"
+
 #define MAT_ELEM( mat, type, x, y ) reinterpret_cast<type *>( ( mat ).data + \
 	( mat ).step * ( y ) + ( mat ).elemSize() * ( x ) )
 
@@ -96,4 +99,6 @@ char * RTrim( char * s );
 */
 char * Trim( char *s );
 
+RTresult createAndSetMaterialColorVariable(RTmaterial rtMaterial, const char* label, Color3f color);
+RTresult createAndSetMaterialScalarVariable(RTmaterial rtMaterial, const char* label, float scalar);
 #endif

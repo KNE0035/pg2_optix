@@ -248,9 +248,11 @@ void Raytracer::LoadScene( const std::string file_name )
 				break;
 		}
 
-		RTvariable diffuse;
-		rtMaterialDeclareVariable(rtMaterial, "diffuse", &diffuse);
-		rtVariableSet3f(diffuse, material->diffuse().r, material->diffuse().g, material->diffuse().b);
+		error_handler(createAndSetMaterialColorVariable(rtMaterial, "diffuse", material->diffuse()));
+		error_handler(createAndSetMaterialColorVariable(rtMaterial, "specular", material->specular()));
+		error_handler(createAndSetMaterialColorVariable(rtMaterial, "ambient", material->ambient()));
+		error_handler(createAndSetMaterialScalarVariable(rtMaterial, "shininess", material->shininess));
+
 		RTvariable tex_diffuse_id;
 		rtMaterialDeclareVariable(rtMaterial, "tex_diffuse_id", &tex_diffuse_id);
 

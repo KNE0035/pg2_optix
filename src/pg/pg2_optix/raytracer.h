@@ -1,7 +1,11 @@
+#ifndef RAYTRACER
+#define RAYTRACER
+
 #pragma once
 #include "simpleguidx11.h"
 #include "surface.h"
 #include "camera.h"
+#include "utils.h"
 
 /*! \class Raytracer
 \brief General ray tracer class.
@@ -40,3 +44,4 @@ private:
 	bool unify_normals_{ true };
 	void error_handler(RTresult code);
 };
+#endif

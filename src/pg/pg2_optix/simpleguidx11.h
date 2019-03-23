@@ -1,3 +1,7 @@
+#ifndef SIMPLE_GUI_DX
+#define SIMPLE_GUI_DX
+
+
 #pragma once
 #include "simpleguidx11.h"
 #include "structs.h"
@@ -59,3 +63,4 @@ private:
 	std::atomic<bool> finish_request_{ false };	
 	std::atomic<bool> repaint_request_{ false };
 };
+#endif
