@@ -20,7 +20,7 @@ rtDeclareVariable( uint2, launch_index, rtLaunchIndex, );
 rtDeclareVariable( PerRayData_radiance, ray_data, rtPayload, );
 rtDeclareVariable( PerRayData_shadow, shadow_ray_data, rtPayload, );
 rtDeclareVariable( float2, barycentrics, attribute rtTriangleBarycentrics, );
-rtDeclareVariable(optix::Ray, ray, rtCurrentRay, );
+rtDeclareVariable(optix::Ray, ray, rtCurrentRay, "current ray");
 rtDeclareVariable(IntersectionInfo, hitInfo, attribute attributes, "Intersection info");
 rtDeclareVariable(optix::float3, view_from, , );
 rtDeclareVariable(optix::Matrix3x3, M_c_w, , "camera to worldspace transformation matrix" );
@@ -111,10 +111,8 @@ RT_PROGRAM void closest_hit_phong_shader(void)
 	
 	//optix::float3 reflectedColor = reflect();
 
-	ray_data.result.x = ambient.x + (getDiffuseColor().x * normalLigthScalarProduct) + specular.x * pow(/*reflectedColor.x **/ optix::dot(-ray.direction, lr), shininess);
-	ray_data.result.y = ambient.y + (getDiffuseColor().y * normalLigthScalarProduct) + specular.y * pow(/*reflectedColor.y **/ optix::dot(-ray.direction, lr), shininess);
-	ray_data.result.z = ambient.z + (getDiffuseColor().z * normalLigthScalarProduct) + specular.z * pow(/*reflectedColor.z **/ optix::dot(-ray.direction, lr), shininess);
-
+	ray_data.result = ambient + (getDiffuseColor() * normalLigthScalarProduct) + specular * pow(/*reflectedColor.x **/ optix::clamp(optix::dot(-ray.direction, lr), 0.0f, 1.0f), shininess);
+	
 	ray_data.result = ray_data.result * getAmbientColor();
 }
 
