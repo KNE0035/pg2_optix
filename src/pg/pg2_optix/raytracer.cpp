@@ -33,7 +33,7 @@ int Raytracer::InitDeviceAndScene()
 	error_handler(rtContextCreate(&context));
 	error_handler(rtContextSetRayTypeCount(context, 2));
 	error_handler(rtContextSetEntryPointCount(context, 1));
-	error_handler(rtContextSetMaxTraceDepth(context, 10));
+	error_handler(rtContextSetMaxTraceDepth(context, 3));
 
 	RTvariable output;
 	error_handler(rtContextDeclareVariable(context, "output_buffer", &output));

@@ -52,6 +52,7 @@ RT_PROGRAM void attribute_program( void )
 									ray.origin.z + ray.tmax * ray.direction.z);
 
 	hitInfo.vectorToLight = optix::normalize(lightPossition - hitInfo.intersectionPoint);
+
 }
 
 RT_PROGRAM void primary_ray( void )
@@ -108,9 +109,11 @@ RT_PROGRAM void closest_hit_phong_shader(void)
 
 	optix::float3 lr = 2 * (normalLigthScalarProduct)* hitInfo.normal - hitInfo.vectorToLight;
 	
-	ray_data.result.x = ambient.x + (getDiffuseColor().x * normalLigthScalarProduct) + specular.x * pow(optix::dot(-ray.direction, lr), shininess);
-	ray_data.result.y = ambient.y + (getDiffuseColor().y * normalLigthScalarProduct) + specular.y * pow(optix::dot(-ray.direction, lr), shininess);
-	ray_data.result.z = ambient.z + (getDiffuseColor().z * normalLigthScalarProduct) + specular.z * pow(optix::dot(-ray.direction, lr), shininess);
+	//optix::float3 reflectedColor = reflect();
+
+	ray_data.result.x = ambient.x + (getDiffuseColor().x * normalLigthScalarProduct) + specular.x * pow(/*reflectedColor.x **/ optix::dot(-ray.direction, lr), shininess);
+	ray_data.result.y = ambient.y + (getDiffuseColor().y * normalLigthScalarProduct) + specular.y * pow(/*reflectedColor.y **/ optix::dot(-ray.direction, lr), shininess);
+	ray_data.result.z = ambient.z + (getDiffuseColor().z * normalLigthScalarProduct) + specular.z * pow(/*reflectedColor.z **/ optix::dot(-ray.direction, lr), shininess);
 
 	ray_data.result = ray_data.result * getAmbientColor();
 }
@@ -195,3 +198,13 @@ __device__ optix::float3 getDiffuseColor()
 
 	return color;
 }
+
+__device__ optix::float3 reflect()
+{
+	PerRayData_radiance prd;
+	optix::float3 reflected = 2 * (hitInfo.normal * ray.direction) * hitInfo.normal - ray.direction;	
+	optix::Ray ray(ray.origin, reflected, 0, 0.01f);
+	rtTrace(top_object, ray, prd);
+	return ray_data.result;
+}
+

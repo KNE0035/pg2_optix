@@ -10,6 +10,7 @@ __device__ optix::float3 sampleHemisphere(optix::float3 normal, curandState_t* s
 __device__ optix::float3 orthogonal(const optix::float3 & v);
 __device__ optix::float3 getAmbientColor();
 __device__ optix::float3 getDiffuseColor();
+__device__ optix::float3 reflect();
 
 struct PerRayData_radiance
 {
