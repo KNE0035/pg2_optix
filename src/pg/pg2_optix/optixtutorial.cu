@@ -95,8 +95,6 @@ RT_PROGRAM void closest_hit_normal_shader( void )
 	ray_data.result = optix::make_float3((normal.x + 1) / 2, (normal.y + 1) / 2, (normal.z + 1) / 2);
 }
 
-enum class Shader : char { NORMAL = 1, LAMBERT = 2, PHONG = 3, GLASS = 4, PBR = 5, MIRROR = 6, TS = 7, CT = 8 };
-
 RT_PROGRAM void closest_hit_lambert_shader(void)
 {
 	float normalLigthScalarProduct = optix::dot(hitInfo.vectorToLight, hitInfo.normal);
